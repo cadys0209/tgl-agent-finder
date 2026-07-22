@@ -128,15 +128,23 @@
     <div class="hint">💡 Looking for an agent <b>with a warehouse in LA</b>? Type <b>Los Angeles</b>, then click the <b>🏭 Warehouse</b> chip below.</div>
 
     <div class="filters">
-      <div style="flex:1 1 160px;">
+      <div style="flex:1 1 150px;">
         <label>Region</label>
         <select id="fCat"><option value="">All regions</option></select>
       </div>
-      <div style="flex:1 1 160px;">
+      <div style="flex:1 1 150px;">
         <label>Country</label>
         <select id="fCountry"><option value="">All countries</option></select>
       </div>
-      <div style="flex:1 1 160px;">
+      <div style="flex:1 1 150px;">
+        <label>City</label>
+        <select id="fCity"><option value="">All cities</option></select>
+      </div>
+      <div style="flex:1 1 150px;">
+        <label>IATA Code</label>
+        <select id="fCode"><option value="">All codes</option></select>
+      </div>
+      <div style="flex:1 1 150px;">
         <label>Network</label>
         <select id="fNet"><option value="">All networks</option></select>
       </div>
@@ -192,12 +200,15 @@ const NET_CANON = {  // uppercased variant -> canonical display
   'WCA':'WCA','WCA (NETWORK PARTNER)':'WCA','WCA (PARTNER)':'WCA','WCA INTER GLOBAL':'WCA',
   'GFP':'GFP','GFP (GLOBAL FORWARDING PARTNERS)':'GFP',
   'PCN':'PCN','PCN (PROJECT CARGO NETWORK)':'PCN',
-  'THE COOPERATIVE LOGISTICS NETWORK':'The Coop','THE COOPERATIVE LOGISTICS NETWORK (THE COOP)':'The Coop',
+  'THE COOPERATIVE LOGISTICS NETWORK':'The Coop','THE COOPERATIVE LOGISTICS NETWORK (THE COOP)':'The Coop','COOP':'The Coop',
   'X2 ELITE':'X2 Elite','ELITE':'X2 Elite',
+  'FRYET':'Freyt World',
+  'OLO FAMILY':'OLO',
+  'INDEPENDENT (MWG PROPRIETARY NETWORK)':'Independent',
 };
 // values that are certifications / noise, not real networks -> drop from Network filter
 const NET_DROP = new Set(['-','A','N','NA','AI','AI AGENT','AEO','IATA','FIATA','ISO 9001',
-  'FMCSA','FMCSA AUTHORIZED','LINKEDIN','GLOBAL','USA','NORTH AMERICA','NYSE: RLGT',
+  'FMCSA','FMCSA AUTHORIZED','LINKEDIN','GLOBAL','GLOBAL NETWORK','USA','NORTH AMERICA','NYSE: RLGT',
   'TRANSPORT TOPICS TOP 25','TSA','WIFFA','TIA MEMBER (ID: 156095)','']);
 function canonNet(s){ if(!s) return ''; const u=s.trim().toUpperCase();
   if(NET_DROP.has(u)) return ''; return NET_CANON[u] || s.trim(); }
@@ -205,9 +216,18 @@ function canonCountry(s){ if(!s) return ''; s=s.trim();
   if(/^[A-Z][A-Z .]+$/.test(s) && /[A-Z]{4,}/.test(s)) // all-caps word len>=4 -> Title Case
     return s.toLowerCase().replace(/\b\w/g,m=>m.toUpperCase());
   return s; }
+const _US_STATE_RE = new RegExp('\\s+(?:Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming)$', 'i');
+function canonCity(s){ s=(s||'').replace(/\s+/g,' ').trim(); if(!s) return '';
+  s=s.split(',')[0].trim();          // drop ", CA" / ", Country" qualifier
+  s=s.replace(_US_STATE_RE,'').trim(); // drop trailing spelled-out US state ("Los Angeles California" -> "Los Angeles")
+  if(/^[A-Z][A-Z .'-]+$/.test(s)) s=s.toLowerCase().replace(/\b\w/g,m=>m.toUpperCase()); // ALLCAPS -> Title Case
+  return s; }
+function junkCode(s){ return /^(?:-+|n\/?a|tbd|none|\?+|\.+)$/i.test((s||'').trim()); }
 
 DATA.forEach(d => {
   d.country = canonCountry(d.country);
+  d.city = canonCity(d.city);
+  d.code = (d.code||'').trim(); if(junkCode(d.code)) d.code='';
   d.netCanon = [...new Set(d.networks.map(canonNet).filter(Boolean))];
   d._s = [d.company, d.country, d.city, d.code, d.cat, d.networks.join(' '),
     d.strength, d.activities, d.special, d.note, d.addr,
@@ -216,35 +236,59 @@ DATA.forEach(d => {
 });
 
 const $ = id => document.getElementById(id);
-const state = { q:'', cat:'', country:'', net:'', caps:new Set() };
+const state = { q:'', cat:'', country:'', city:'', code:'', net:'', caps:new Set() };
 
-// populate dropdowns
-function fill(sel, vals){ vals.sort((a,b)=>a.localeCompare(b)).forEach(v=>{
-  const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); }); }
-fill($('fCat'), [...new Set(DATA.map(d=>d.cat).filter(Boolean))]);
-fill($('fCountry'), [...new Set(DATA.map(d=>d.country).filter(Boolean))]);
-// networks: only those on >=2 companies (drops one-off junk)
-const netCount={}; DATA.forEach(d=>d.netCanon.forEach(n=>netCount[n]=(netCount[n]||0)+1));
-fill($('fNet'), Object.keys(netCount).filter(n=>netCount[n]>=2));
+// ---- faceted (cascading) dropdowns ----
+// each dropdown's options reflect what's available under the OTHER active filters
+const FACETS = [
+  {key:'cat',     sel:'fCat',     all:'All regions',   vals:d=>[d.cat]},
+  {key:'country', sel:'fCountry', all:'All countries', vals:d=>[d.country]},
+  {key:'city',    sel:'fCity',    all:'All cities',    vals:d=>[d.city]},
+  {key:'code',    sel:'fCode',    all:'All codes',     vals:d=>[d.code]},
+  {key:'net',     sel:'fNet',     all:'All networks',  vals:d=>d.netCanon, min:2},
+];
+function matchesExcept(d, except){
+  const terms = state.q ? state.q.split(/\s+/).filter(Boolean) : [];
+  if(except!=='cat'     && state.cat     && d.cat!==state.cat) return false;
+  if(except!=='country' && state.country && d.country!==state.country) return false;
+  if(except!=='city'    && state.city    && d.city!==state.city) return false;
+  if(except!=='code'    && state.code    && d.code!==state.code) return false;
+  if(except!=='net'     && state.net     && !d.netCanon.includes(state.net)) return false;
+  for(const k of state.caps) if(!d.caps[k]) return false;
+  for(const t of terms) if(!d._s.includes(t)) return false;
+  return true;
+}
+const matches = d => matchesExcept(d, null);
+
+function rebuildFacet(f){
+  const sel=$(f.sel), cur=state[f.key], counts={};
+  DATA.forEach(d=>{ if(matchesExcept(d,f.key)) f.vals(d).forEach(v=>{ if(v) counts[v]=(counts[v]||0)+1; }); });
+  let opts=Object.keys(counts);
+  if(f.min) opts=opts.filter(v=>counts[v]>=f.min || v===cur);
+  if(cur && !opts.includes(cur)) opts.push(cur);
+  opts.sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = `<option value="">${f.all}</option>` +
+    opts.map(v=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(v)}</option>`).join('');
+}
+function rebuildFacets(){ FACETS.forEach(rebuildFacet); }
+FACETS.forEach(f=>{ $(f.sel).onchange = e=>{ state[f.key]=e.target.value; rebuildFacets(); render(); }; });
+rebuildFacets();
 
 // capability chips
 const capsBox=$('caps');
 CAP_DEFS.forEach(([k,lbl])=>{
   const c=document.createElement('div'); c.className='chip'; c.textContent=lbl; c.dataset.k=k;
   c.onclick=()=>{ if(state.caps.has(k)){state.caps.delete(k);c.classList.remove('on');}
-    else{state.caps.add(k);c.classList.add('on');} render(); };
+    else{state.caps.add(k);c.classList.add('on');} rebuildFacets(); render(); };
   capsBox.appendChild(c);
 });
 
-$('q').addEventListener('input', e=>{ state.q=e.target.value.trim().toLowerCase(); render(); });
-$('fCat').onchange=e=>{state.cat=e.target.value;render();};
-$('fCountry').onchange=e=>{state.country=e.target.value;render();};
-$('fNet').onchange=e=>{state.net=e.target.value;render();};
+$('q').addEventListener('input', e=>{ state.q=e.target.value.trim().toLowerCase(); rebuildFacets(); render(); });
 $('clear').onclick=()=>{
-  state.q='';state.cat='';state.country='';state.net='';state.caps.clear();
-  $('q').value='';$('fCat').value='';$('fCountry').value='';$('fNet').value='';
+  state.q='';state.cat='';state.country='';state.city='';state.code='';state.net='';state.caps.clear();
+  $('q').value='';
   document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));
-  render();
+  rebuildFacets(); render();
 };
 
 function esc(s){ return (s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
@@ -257,14 +301,7 @@ function capBadge(k,raw){ let t=CAP_LABEL[k]; if(raw) t+=' — '+raw; return `<s
 
 function render(){
   const terms = state.q ? state.q.split(/\s+/).filter(Boolean) : [];
-  const res = DATA.filter(d=>{
-    if(state.cat && d.cat!==state.cat) return false;
-    if(state.country && d.country!==state.country) return false;
-    if(state.net && !d.netCanon.includes(state.net)) return false;
-    for(const k of state.caps) if(!d.caps[k]) return false;
-    for(const t of terms) if(!d._s.includes(t)) return false;
-    return true;
-  });
+  const res = DATA.filter(matches);
   $('count').innerHTML = `Found <b>${res.length}</b> agent${res.length===1?'':'s'}` + (DATA.length!==res.length?` <span style="color:#aaa">(of ${DATA.length})</span>`:'');
   const box=$('results');
   if(!res.length){ box.innerHTML='<div class="empty">No agents match — try broadening the filters or different keywords.</div>'; return; }

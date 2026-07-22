@@ -9,7 +9,10 @@ WHAT IT IS
   Search a destination (country / city / keyword) and toggle service-capability
   chips (Warehouse, Trucking, Customs, DG, OOG, Project, White Gloves, E-com)
   to shortlist the right overseas agent for an inquiry — e.g. type "Los Angeles"
-  then click the 倉庫 Warehouse chip to get "LA agents that have a warehouse".
+  then click the Warehouse chip to get "LA agents that have a warehouse".
+  The interface is English and opens behind a shared passcode (see below).
+  Region / Country / City / IATA Code / Network are cascading dropdowns
+  (each narrows to only the values still available under the others).
 
 USE IT LOCALLY (no hosting)
   Double-click "TGL Agent Finder.html" (one folder up) — opens in any browser,
@@ -34,6 +37,31 @@ WHEN THE AGENT LIST CHANGES (rebuild the data)
        (it re-reads the .xlsm Summary sheet and rewrites index.html +
         "TGL Agent Finder.html").
     3. Re-upload index.html to GitHub / re-drag the folder to Netlify.
+
+  DO THE CLEANUP RULES SURVIVE AN UPDATE?  Yes.
+    All the tidy-up rules live in _template.html, NOT in the data, so build.py
+    re-applies them to the fresh Excel every time. These work AUTOMATICALLY on
+    new data, no matter what changes:
+      - case merging (BLOC/Bloc, SEAJET/Seajet, JCtrans/Jctrans ...)
+      - City cleanup: drop ", CA" / trailing US state, fix ALL-CAPS
+      - Country ALL-CAPS -> Title Case
+      - passcode, English UI, the 5 cascading dropdowns
+    Nothing to do — just run build.py.
+
+  ONE EXCEPTION — brand-new spelling variants of a Network.
+    A few Network merges use a fixed list of the exact spellings seen today
+    (e.g. COOP -> The Coop, Fryet -> Freyt World, OLO Family -> OLO). If a
+    future update introduces a NEW spelling/typo not on that list, it will show
+    up as its own separate item until the list is extended. (All the spellings
+    already known will keep merging.)
+    To add a new one yourself, open _template.html and edit these two lists:
+      - NET_CANON  (~line 195): map an UPPERCASE variant to the name to show,
+                    e.g.   'CO-OP':'The Coop',
+      - NET_DROP   (~line 210): UPPERCASE junk values to hide from the filter,
+                    e.g. add   'SOME-CERT',
+    Then run  python build.py  and re-upload index.html.
+    Easiest option: just send Fable the updated .xlsm and it will rebuild and
+    top up these lists for you.
 
 KEEP IN SYNC
   "TGL Agent Finder.html" (one folder up) is a COPY of index.html for

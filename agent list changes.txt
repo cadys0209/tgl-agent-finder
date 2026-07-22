@@ -1,0 +1,5 @@
+Later, when the agent list changes
+
+On your PC, run python build.py (regenerates index.html).
+In the repo, click index.html ▸ the pencil ✏️ (Edit) icon isn't practical for a big file, so instead use Add file ▸ Upload files, drag the new index.html, and it will replace the old one when you Commit.
+The live link updates automatically in a minute or two (do a hard refresh, Ctrl+F5, to bypass the browser cache).

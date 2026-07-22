@@ -1,0 +1,78 @@
+TGL Agent Finder — how to publish on GitHub Pages (shareable link)
+==================================================================
+
+Everything below is done in the GitHub website. No software to install.
+The file to publish is  index.html  (in this folder).
+
+
+STEP 1 — Create the repository
+------------------------------
+  1. Go to  https://github.com/new   (sign in as cadys0209 if asked).
+  2. Repository name:   tgl-agent-finder
+       (lowercase, hyphens — this becomes part of your link)
+  3. Visibility:  Public
+       (GitHub Pages is free only on public repos)
+  4. Add README:  On   (creates the first commit so upload is smoother)
+  5. Leave .gitignore = None and license = None.
+  6. Scroll down and click the green  Create repository  button.
+
+
+STEP 2 — Upload the tool
+------------------------
+  1. On the new repo page, click:  Add file  >  Upload files.
+  2. Open this folder (agent-finder-site) and drag  index.html  onto the page.
+       - Only index.html is needed for the live site.
+       - Optional: also drag README.txt, build.py, _template.html so the
+         source is backed up on GitHub (they don't affect the site).
+       - The file is ~0.9 MB, well under GitHub's 25 MB web-upload limit.
+  3. Scroll down and click  Commit changes.
+
+
+STEP 3 — Turn on GitHub Pages
+-----------------------------
+  1. In the repo, click  Settings  (top menu).
+  2. Left sidebar >  Pages.
+  3. Build and deployment > Source:  Deploy from a branch.
+  4. Branch:  main   Folder:  / (root)   then click  Save.
+  5. Wait ~1 minute, refresh the page. A green banner shows your link:
+
+         https://cadys0209.github.io/tgl-agent-finder/
+
+  Share that link with colleagues — works on any computer or phone, no install.
+
+  TEST FIRST: open the link yourself, type "Los Angeles" and click the
+  Warehouse chip to confirm it loaded.
+
+
+SHARED PASSCODE (access screen)
+-------------------------------
+  The tool opens to a passcode screen. Give colleagues this passcode:
+
+         tgl16598004
+
+  - They type it once; the browser remembers it, so they won't be asked
+    again on that device (unless they clear their browser data).
+  - To change the passcode later: open build.py's template _template.html,
+    find the line   const PASSCODE = 'tgl16598004';   change the code inside
+    the quotes, run  python build.py , and re-upload index.html.
+
+  NOTE — this is a LIGHT gate, not strong security. The agent data is inside
+  the file, so a technical person could still read it by viewing the page
+  source. It keeps casual/public visitors out, which is enough for internal
+  use. If you ever need real "only logged-in people can see it" control,
+  ask Fable to set up Cloudflare Access (free, email-code login).
+
+
+STEP 4 — Later, when the agent list changes
+-------------------------------------------
+  1. On your PC, run:  python build.py   (regenerates index.html).
+  2. In the repo: Add file > Upload files, drag the NEW index.html — it
+     replaces the old one when you Commit changes.
+  3. The live link updates in a minute or two. Hard-refresh (Ctrl+F5) to
+     bypass the browser cache.
+
+
+FASTER ALTERNATIVE (no GitHub, temporary link ~30s)
+---------------------------------------------------
+  Open  https://app.netlify.com/drop  and drag the whole agent-finder-site
+  folder onto the page. It hands you a link immediately (no account needed).
