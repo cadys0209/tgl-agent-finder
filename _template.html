@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TGL Agent Finder 找代理</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+    background: #f5f7fa; color: #1a2340; min-height: 100vh; padding: 18px 14px 60px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .logo { background: #003087; color: #fff; font-weight: 900; font-size: 17px;
+    padding: 8px 13px; border-radius: 8px; letter-spacing: 1px; }
+  h1 { font-size: 20px; font-weight: 700; color: #003087; }
+  .subtitle { font-size: 12px; color: #888; margin-top: 2px; }
+
+  .panel { background: #fff; border-radius: 12px; padding: 16px 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07); margin-bottom: 14px; }
+  label { display: block; font-size: 11px; font-weight: 700; color: #555;
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  #q { width: 100%; padding: 12px 15px; font-size: 16px; border: 2px solid #e0e4ef;
+    border-radius: 8px; outline: none; background: #fafbfd; transition: border-color .2s; }
+  #q:focus { border-color: #003087; background: #fff; }
+  .hint { font-size: 11.5px; color: #999; margin-top: 7px; }
+  .hint b { color: #003087; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .filters select { flex: 1 1 160px; min-width: 140px; padding: 9px 11px; font-size: 13px;
+    border: 2px solid #e0e4ef; border-radius: 8px; background: #fafbfd; color: #1a2340; outline: none; }
+  .filters select:focus { border-color: #003087; }
+
+  .caps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { font-size: 12.5px; padding: 7px 12px; border-radius: 20px; cursor: pointer;
+    border: 2px solid #e0e4ef; background: #fafbfd; color: #444; user-select: none;
+    transition: all .15s; font-weight: 600; }
+  .chip:hover { border-color: #b9c2dd; }
+  .chip.on { background: #003087; border-color: #003087; color: #fff; }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center;
+    margin: 4px 2px 12px; flex-wrap: wrap; gap: 8px; }
+  .count { font-size: 13px; color: #555; font-weight: 600; }
+  .count b { color: #003087; }
+  .clear { font-size: 12px; color: #c0392b; background: none; border: none; cursor: pointer;
+    font-weight: 600; padding: 4px 8px; }
+  .clear:hover { text-decoration: underline; }
+
+  .card { background: #fff; border-radius: 12px; padding: 15px 17px; margin-bottom: 11px;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.06); border-left: 4px solid #003087; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    flex-wrap: wrap; }
+  .co { font-size: 16px; font-weight: 700; color: #1a2340; }
+  .loc { font-size: 12.5px; color: #777; margin-top: 2px; }
+  .loc .flag { color: #003087; font-weight: 600; }
+  .badges { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .badge { font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 12px;
+    background: #eef1f8; color: #003087; }
+  .badge.region { background: #003087; color: #fff; }
+  .badge.net { background: #e8f4ec; color: #1e7e45; }
+
+  .capline { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 4px; }
+  .capbadge { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 6px;
+    background: #fff4e6; color: #b9660b; border: 1px solid #ffe0b8; }
+
+  .contacts { margin-top: 10px; border-top: 1px solid #f0f2f7; padding-top: 9px; }
+  .contact { font-size: 13px; padding: 3px 0; display: flex; flex-wrap: wrap; gap: 5px 12px; align-items: baseline; }
+  .contact .nm { font-weight: 600; color: #1a2340; }
+  .contact .ti { color: #888; font-size: 11.5px; }
+  .contact a { color: #0057c8; text-decoration: none; }
+  .contact a:hover { text-decoration: underline; }
+  .contact .tel { color: #555; font-size: 12px; }
+
+  .extra { margin-top: 9px; font-size: 12px; color: #555; line-height: 1.5; }
+  .extra .k { font-weight: 700; color: #003087; }
+  .weblink { font-size: 12px; margin-top: 7px; }
+  .weblink a { color: #0057c8; text-decoration: none; }
+
+  .empty { text-align: center; color: #999; padding: 40px 10px; font-size: 14px; }
+  mark { background: #fff3a0; padding: 0 1px; border-radius: 2px; }
+  @media (max-width: 560px){ .co{font-size:15px;} #q{font-size:15px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo">TGL</div>
+    <div>
+      <h1>Agent Finder 找代理</h1>
+      <div class="subtitle">有詢價時，依 國家 / 城市 / 服務能力 找合適的海外代理 · 內部使用</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label>搜尋 Search（公司、國家、城市、聯絡人、Email、專長…）</label>
+    <input id="q" type="text" placeholder="例：Los Angeles、reefer、Vietnam、customs…  多個字用空白分隔（全部符合）" autocomplete="off">
+    <div class="hint">💡 想找「<b>LA 有倉庫的代理</b>」→ 打 <b>Los Angeles</b>，再點下面的 <b>🏭 倉庫</b> 標籤。</div>
+
+    <div class="filters">
+      <div style="flex:1 1 160px;">
+        <label>地區 Region</label>
+        <select id="fCat"><option value="">全部地區</option></select>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>國家 Country</label>
+        <select id="fCountry"><option value="">全部國家</option></select>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>網絡 Network</label>
+        <select id="fNet"><option value="">全部網絡</option></select>
+      </div>
+    </div>
+
+    <label style="margin-top:14px;">服務能力 Service capability（點選＝只顯示有此能力的代理）</label>
+    <div class="caps" id="caps"></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="count" id="count"></div>
+    <button class="clear" id="clear">✕ 清除全部條件</button>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const CAP_DEFS = [
+  ["warehouse","🏭 倉庫 Warehouse"],
+  ["trucking","🚚 拖車 Trucking"],
+  ["customs","🛃 報關 Customs"],
+  ["dg","☢️ 危險品 DG"],
+  ["oog","📦 超限 OOG"],
+  ["project","🏗️ 專案貨 Project"],
+  ["whitegloves","🧤 White Gloves"],
+  ["ecom","🛒 電商 E-com"],
+];
+const DATA = /*__DATA__*/[];
+
+// ---- normalize noisy source values (case variants / junk) ----
+const NET_CANON = {  // uppercased variant -> canonical display
+  'BLOC':'Bloc','AIO':'AiO','AIO LOGISTICS NETWORK':'AiO','AIO PERISHABLE':'AiO',
+  'SEAJET':'SEAJET','LINKBRIDGE ( SEAJET)':'SEAJET',
+  'SLN':'SLN','5SLN':'SLN','5-SLN':'SLN','SEAHAWK LOGISTICS NETWORK (SLN)':'SLN',
+  'JCTRANS':'JCtrans','JC TRANS':'JCtrans',
+  'WCA':'WCA','WCA (NETWORK PARTNER)':'WCA','WCA (PARTNER)':'WCA','WCA INTER GLOBAL':'WCA',
+  'GFP':'GFP','GFP (GLOBAL FORWARDING PARTNERS)':'GFP',
+  'PCN':'PCN','PCN (PROJECT CARGO NETWORK)':'PCN',
+  'THE COOPERATIVE LOGISTICS NETWORK':'The Coop','THE COOPERATIVE LOGISTICS NETWORK (THE COOP)':'The Coop',
+  'X2 ELITE':'X2 Elite','ELITE':'X2 Elite',
+};
+// values that are certifications / noise, not real networks -> drop from Network filter
+const NET_DROP = new Set(['-','A','N','NA','AI','AI AGENT','AEO','IATA','FIATA','ISO 9001',
+  'FMCSA','FMCSA AUTHORIZED','LINKEDIN','GLOBAL','USA','NORTH AMERICA','NYSE: RLGT',
+  'TRANSPORT TOPICS TOP 25','TSA','WIFFA','TIA MEMBER (ID: 156095)','']);
+function canonNet(s){ if(!s) return ''; const u=s.trim().toUpperCase();
+  if(NET_DROP.has(u)) return ''; return NET_CANON[u] || s.trim(); }
+function canonCountry(s){ if(!s) return ''; s=s.trim();
+  if(/^[A-Z][A-Z .]+$/.test(s) && /[A-Z]{4,}/.test(s)) // all-caps word len>=4 -> Title Case
+    return s.toLowerCase().replace(/\b\w/g,m=>m.toUpperCase());
+  return s; }
+
+DATA.forEach(d => {
+  d.country = canonCountry(d.country);
+  d.netCanon = [...new Set(d.networks.map(canonNet).filter(Boolean))];
+  d._s = [d.company, d.country, d.city, d.code, d.cat, d.networks.join(' '),
+    d.strength, d.activities, d.special, d.note, d.addr,
+    d.contacts.map(c=>c.name+' '+c.title+' '+c.email).join(' ')
+  ].join(' ').toLowerCase();
+});
+
+const $ = id => document.getElementById(id);
+const state = { q:'', cat:'', country:'', net:'', caps:new Set() };
+
+// populate dropdowns
+function fill(sel, vals){ vals.sort((a,b)=>a.localeCompare(b)).forEach(v=>{
+  const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); }); }
+fill($('fCat'), [...new Set(DATA.map(d=>d.cat).filter(Boolean))]);
+fill($('fCountry'), [...new Set(DATA.map(d=>d.country).filter(Boolean))]);
+// networks: only those on >=2 companies (drops one-off junk)
+const netCount={}; DATA.forEach(d=>d.netCanon.forEach(n=>netCount[n]=(netCount[n]||0)+1));
+fill($('fNet'), Object.keys(netCount).filter(n=>netCount[n]>=2));
+
+// capability chips
+const capsBox=$('caps');
+CAP_DEFS.forEach(([k,lbl])=>{
+  const c=document.createElement('div'); c.className='chip'; c.textContent=lbl; c.dataset.k=k;
+  c.onclick=()=>{ if(state.caps.has(k)){state.caps.delete(k);c.classList.remove('on');}
+    else{state.caps.add(k);c.classList.add('on');} render(); };
+  capsBox.appendChild(c);
+});
+
+$('q').addEventListener('input', e=>{ state.q=e.target.value.trim().toLowerCase(); render(); });
+$('fCat').onchange=e=>{state.cat=e.target.value;render();};
+$('fCountry').onchange=e=>{state.country=e.target.value;render();};
+$('fNet').onchange=e=>{state.net=e.target.value;render();};
+$('clear').onclick=()=>{
+  state.q='';state.cat='';state.country='';state.net='';state.caps.clear();
+  $('q').value='';$('fCat').value='';$('fCountry').value='';$('fNet').value='';
+  document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));
+  render();
+};
+
+function esc(s){ return (s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function hl(s, terms){ s=esc(s); terms.forEach(t=>{ if(t.length<2)return;
+  const re=new RegExp('('+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+  s=s.replace(re,'<mark>$1</mark>'); }); return s; }
+
+const CAP_LABEL=Object.fromEntries(CAP_DEFS.map(([k,l])=>[k,l]));
+function capBadge(k,raw){ let t=CAP_LABEL[k]; if(raw) t+=' — '+raw; return `<span class="capbadge">${esc(t)}</span>`; }
+
+function render(){
+  const terms = state.q ? state.q.split(/\s+/).filter(Boolean) : [];
+  const res = DATA.filter(d=>{
+    if(state.cat && d.cat!==state.cat) return false;
+    if(state.country && d.country!==state.country) return false;
+    if(state.net && !d.netCanon.includes(state.net)) return false;
+    for(const k of state.caps) if(!d.caps[k]) return false;
+    for(const t of terms) if(!d._s.includes(t)) return false;
+    return true;
+  });
+  $('count').innerHTML = `找到 <b>${res.length}</b> 家代理` + (DATA.length!==res.length?` <span style="color:#aaa">(共 ${DATA.length})</span>`:'');
+  const box=$('results');
+  if(!res.length){ box.innerHTML='<div class="empty">沒有符合條件的代理 — 試著放寬條件或改用其他關鍵字。</div>'; return; }
+  const CAP=250;
+  const html = res.slice(0,CAP).map(d=>{
+    const nets = d.netCanon.map(n=>`<span class="badge net">${esc(n)}</span>`).join('');
+    const caps = Object.keys(d.caps).map(k=>capBadge(k, d.capraw&&d.capraw[k])).join('');
+    const contacts = d.contacts.map(c=>{
+      let parts=[`<span class="nm">${hl(c.name,terms)}</span>`];
+      if(c.title) parts.push(`<span class="ti">${esc(c.title)}</span>`);
+      if(c.email) parts.push(`<a href="mailto:${esc(c.email)}">✉ ${esc(c.email)}</a>`);
+      if(c.tel){ const tel=c.tel.replace(/\s+/g,' ').trim(); parts.push(`<span class="tel">📞 ${esc(tel)}</span>`); }
+      return `<div class="contact">${parts.join('')}</div>`;
+    }).join('');
+    let extra='';
+    if(d.strength) extra+=`<div class="extra"><span class="k">專長 Strength：</span>${hl(d.strength,terms)}</div>`;
+    if(d.special) extra+=`<div class="extra"><span class="k">特殊服務：</span>${hl(d.special,terms)}</div>`;
+    const web = d.web ? `<div class="weblink">🔗 <a href="${d.web.startsWith('http')?esc(d.web):'https://'+esc(d.web)}" target="_blank" rel="noopener">${esc(d.web)}</a></div>` : '';
+    const loc = [d.city, d.country].filter(Boolean).map(esc).join(', ');
+    return `<div class="card">
+      <div class="card-top">
+        <div>
+          <div class="co">${hl(d.company,terms)}</div>
+          <div class="loc"><span class="flag">📍 ${loc||'—'}</span>${d.code?' · '+esc(d.code):''}</div>
+        </div>
+        <div class="badges">${d.cat?`<span class="badge region">${esc(d.cat)}</span>`:''}${nets}</div>
+      </div>
+      ${caps?`<div class="capline">${caps}</div>`:''}
+      ${contacts?`<div class="contacts">${contacts}</div>`:''}
+      ${extra}${web}
+    </div>`;
+  }).join('');
+  const more = res.length>CAP ? `<div class="empty">只顯示前 ${CAP} 家（共 ${res.length} 家符合），請縮小搜尋範圍。</div>`:'';
+  box.innerHTML = html + more;
+}
+render();
+</script>
+</body>
+</html>
