@@ -283,7 +283,7 @@ DATA.forEach(d => {
   d.code = (d.code||'').trim(); if(junkCode(d.code)) d.code='';
   d.netCanon = [...new Set(d.networks.map(canonNet).filter(Boolean))];
   d._s = [d.company, d.country, d.city, d.code, d.cat, d.networks.join(' '),
-    d.strength, d.activities, d.special, d.note, d.addr,
+    d.strength, d.activities, d.special, d.note, d.remark, d.addr,
     d.contacts.map(c=>c.name+' '+c.title+' '+c.email).join(' ')
   ].join(' ').toLowerCase();
 });
@@ -411,6 +411,22 @@ function _fuzzyScore(blob, terms){          // lower = closer match (0 = all exa
   }
   return s;
 }
+// ---- field-weighted relevance: where the query hits decides the order ----
+// company > location > contact name > email/title > network > strength/special
+// > note/activities > remark. Highest matching field wins; rating breaks ties.
+function relevance(d, q){
+  const has = s => !!(s && String(s).toLowerCase().includes(q));
+  if(has(d.company)) return 100;
+  if(has(d.city)||has(d.country)||has(d.code)||has(d.addr)) return 85;   // place / location
+  if(d.contacts.some(c=>has(c.name))) return 75;
+  if(d.contacts.some(c=>has(c.email)||has(c.title))) return 60;
+  if(d.netCanon.some(has)) return 55;
+  if(has(d.strength)||has(d.special)) return 45;
+  if(has(d.note)||has(d.activities)) return 30;
+  if(has(d.remark)) return 15;
+  return 0;                                   // matched only across fields (multi-word spread)
+}
+
 function _passNonText(d){                    // all filters except the text box
   if(state.cat && d.cat!==state.cat) return false;
   if(state.country && d.country!==state.country) return false;
@@ -450,11 +466,14 @@ function render(){
     res = DATA.filter(d => _passNonText(d) && terms.every(t => _fuzzyTerm(d._s, t)));
     fuzzy = res.length>0;
   }
+  const sorter = SORTERS[state.sort];
+  const tie = (a,b)=> sorter ? sorter(a,b) : (SORTERS.rating(a,b));
   if(fuzzy){
-    res.sort((a,b)=> _fuzzyScore(a._s,terms) - _fuzzyScore(b._s,terms));  // closest first
-  } else {
-    const sorter = SORTERS[state.sort];
-    if(sorter) res.sort(sorter);
+    res.sort((a,b)=> _fuzzyScore(a._s,terms) - _fuzzyScore(b._s,terms) || tie(a,b)); // closest first
+  } else if(state.q){
+    res.sort((a,b)=> relevance(b, state.q) - relevance(a, state.q) || tie(a,b));      // best-field match first
+  } else if(sorter){
+    res.sort(sorter);                                                                 // browsing: use the dropdown
   }
   $('count').innerHTML = `Found <b>${res.length}</b> agent${res.length===1?'':'s'}`
     + (DATA.length!==res.length?` <span style="color:#aaa">(of ${DATA.length})</span>`:'')
