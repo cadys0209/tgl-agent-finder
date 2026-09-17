@@ -283,7 +283,7 @@ DATA.forEach(d => {
   d.code = (d.code||'').trim(); if(junkCode(d.code)) d.code='';
   d.netCanon = [...new Set(d.networks.map(canonNet).filter(Boolean))];
   d._s = [d.company, d.country, d.city, d.code, d.cat, d.networks.join(' '),
-    d.strength, d.activities, d.special, d.note, d.remark, d.addr,
+    d.strength, d.activities, d.special, d.note, d.addr,
     d.contacts.map(c=>c.name+' '+c.title+' '+c.email).join(' ')
   ].join(' ').toLowerCase();
 });
@@ -372,6 +372,55 @@ function ratingHtml(d){
   return pills.length ? `<div class="ratings">${pills.join('')}</div>` : '';
 }
 
+// ---- fuzzy search (typo tolerant) ----
+// Runs only as a fallback when the strict substring search finds nothing, so
+// normal typing stays instant; a typo like "aeronett" still finds "Aeronet".
+function _lev(a, b){
+  const m=a.length, n=b.length;
+  if(Math.abs(m-n) > 2) return 3;          // too different, bail early
+  let prev = Array.from({length:n+1}, (_,i)=>i);
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++)
+      cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur;
+  }
+  return prev[n];
+}
+function _fuzzyTerm(blob, term){
+  if(blob.includes(term)) return true;      // substring still counts
+  const tol = term.length<=4 ? 1 : 2;       // allow 1 typo (short) or 2 (longer)
+  for(const t of blob.split(/[^a-z0-9]+/)){
+    if(!t) continue;
+    if(t.includes(term) || (Math.abs(t.length-term.length)<=tol && _lev(t,term)<=tol)) return true;
+  }
+  return false;
+}
+function _fuzzyScore(blob, terms){          // lower = closer match (0 = all exact)
+  let s=0;
+  for(const term of terms){
+    if(blob.includes(term)) continue;
+    const tol = term.length<=4 ? 1 : 2;
+    let best = 9;
+    for(const t of blob.split(/[^a-z0-9]+/)){
+      if(!t) continue;
+      if(t.includes(term)){ best=0; break; }
+      if(Math.abs(t.length-term.length)<=tol){ const d=_lev(t,term); if(d<best) best=d; }
+    }
+    s += best;
+  }
+  return s;
+}
+function _passNonText(d){                    // all filters except the text box
+  if(state.cat && d.cat!==state.cat) return false;
+  if(state.country && d.country!==state.country) return false;
+  if(state.city && d.city!==state.city) return false;
+  if(state.code && d.code!==state.code) return false;
+  if(state.net && !d.netCanon.includes(state.net)) return false;
+  for(const k of state.caps) if(!d.caps[k]) return false;
+  return true;
+}
+
 // ---- Remark pop-up ----
 let _rendered = [];   // the records currently shown (for the modal to look up by index)
 function openRemark(d){
@@ -395,10 +444,21 @@ $('results').addEventListener('click', e=>{
 
 function render(){
   const terms = state.q ? state.q.split(/\s+/).filter(Boolean) : [];
-  const res = DATA.filter(matches);
-  const sorter = SORTERS[state.sort];
-  if(sorter) res.sort(sorter);
-  $('count').innerHTML = `Found <b>${res.length}</b> agent${res.length===1?'':'s'}` + (DATA.length!==res.length?` <span style="color:#aaa">(of ${DATA.length})</span>`:'');
+  let res = DATA.filter(matches);
+  let fuzzy = false;
+  if(res.length===0 && terms.length){       // no exact hit -> widen to typo-tolerant match
+    res = DATA.filter(d => _passNonText(d) && terms.every(t => _fuzzyTerm(d._s, t)));
+    fuzzy = res.length>0;
+  }
+  if(fuzzy){
+    res.sort((a,b)=> _fuzzyScore(a._s,terms) - _fuzzyScore(b._s,terms));  // closest first
+  } else {
+    const sorter = SORTERS[state.sort];
+    if(sorter) res.sort(sorter);
+  }
+  $('count').innerHTML = `Found <b>${res.length}</b> agent${res.length===1?'':'s'}`
+    + (DATA.length!==res.length?` <span style="color:#aaa">(of ${DATA.length})</span>`:'')
+    + (fuzzy?` <span style="color:#b9660b">· no exact match, showing closest</span>`:'');
   const box=$('results');
   if(!res.length){ box.innerHTML='<div class="empty">No agents match — try broadening the filters or different keywords.</div>'; return; }
   const CAP=250;
