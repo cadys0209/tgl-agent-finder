@@ -112,6 +112,9 @@
   .contact .ti { color: #888; font-size: 11.5px; }
   .contact a { color: #0057c8; text-decoration: none; }
   .contact a:hover { text-decoration: underline; }
+  .ecopy { border:1px solid #cfd8e6; background:#f4f7fb; border-radius:6px; padding:0 6px; margin-left:-6px; font-size:13px; line-height:1.5; cursor:pointer; color:#555; vertical-align:baseline; }
+  .ecopy:hover { background:#e6eefb; border-color:#9db8e6; }
+  .ecopy.copied { background:#e8f4ec; border-color:#9fd4b2; color:#1e7e45; }
   .contact .tel { color: #555; font-size: 12px; }
   .contact.route { background: #fff8e1; border: 1px solid #ffe08a; border-radius: 6px;
     padding: 4px 8px; margin-bottom: 4px; }
@@ -513,6 +516,7 @@ function openAddress(d){
 function copyText(t, el){
   const done = ()=>{ if(!el) return; el.classList.add('copied'); const o=el.innerHTML;
     if(el.classList.contains('mbtn')) el.textContent='✓ Copied';
+    else if(el.classList.contains('ecopy')) el.textContent='✓';
     setTimeout(()=>{ el.classList.remove('copied'); el.innerHTML=o; }, 1200); };
   try{ navigator.clipboard.writeText(t).then(done, ()=>{ _legacyCopy(t); done(); }); }
   catch(e){ _legacyCopy(t); done(); }
@@ -529,6 +533,8 @@ $('results').addEventListener('click', e=>{
   if(b) return openRemark(_rendered[+b.dataset.i]);
   const a = e.target.closest('.flag.clickable');
   if(a) return openAddress(_rendered[+a.dataset.i]);
+  const ec = e.target.closest('.ecopy');
+  if(ec) return copyText(ec.dataset.copy, ec);
   const c = e.target.closest('.codechip');
   if(c) copyText(c.dataset.copy, c);
 });
@@ -563,12 +569,12 @@ function render(){
     // quote-routing pulled from the Remark log by build.py — pinned above the contacts
     const routes = (d.routes||[]).map(r=>`<div class="contact route" title="From Remark: ${esc(r.label)}">
         <span class="rtag ${r.kind}">${r.kind==='cc'?'📌 Always CC':'📮 Send quotes to'}</span>
-        <a href="mailto:${esc(r.email)}">✉ ${hl(r.email,terms)}</a>
+        <a href="mailto:${esc(r.email)}">✉ ${hl(r.email,terms)}</a><button class="ecopy" data-copy="${esc(r.email)}" title="Copy email">📋</button>
         <span class="ti">${r.hint?esc(r.hint)+' · ':''}from Remark</span></div>`).join('');
     const contacts = routes + d.contacts.map(c=>{
       let parts=[`<span class="nm">${hl(c.name,terms)}</span>`];
       if(c.title) parts.push(`<span class="ti">${esc(c.title)}</span>`);
-      if(c.email) parts.push(`<a href="mailto:${esc(c.email)}">✉ ${esc(c.email)}</a>`);
+      if(c.email) parts.push(`<a href="mailto:${esc(c.email)}">✉ ${esc(c.email)}</a><button class="ecopy" data-copy="${esc(c.email)}" title="Copy email">📋</button>`);
       if(c.tel){ const tel=c.tel.replace(/\s+/g,' ').trim(); parts.push(`<span class="tel">📞 ${esc(tel)}</span>`); }
       return `<div class="contact">${parts.join('')}</div>`;
     }).join('');
